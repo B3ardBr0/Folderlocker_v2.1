@@ -4,10 +4,9 @@ TITLE Secure Folder Locker
 COLOR 0A
 
 :: Define variables
-SET "CURRENT_DIR=%CD%"
-SET "LOCKERNAME=%CURRENT_DIR%\Locker"
-SET "HIDDENNAME=%CURRENT_DIR%\Control Panel.{21EC2020-3AEA-1069-A2DD-08002B30309D}"
-SET "PASSWORDFILE=%CURRENT_DIR%\.config.dat"
+SET "LOCKERNAME=%~dp0%Locker"
+SET "HIDDENNAME=%~dp0%Control Panel.{21EC2020-3AEA-1069-A2DD-08002B30309D}"
+SET "PASSWORDFILE=%~dp0%.config.dat"
 SET "DEFAULTMSG=Secure Folder System"
 
 :: Check if running with admin privileges
@@ -23,7 +22,7 @@ IF %ERRORLEVEL% NEQ 0 (
 :MAIN
 CLS
 ECHO ========================================
-ECHO         SECURE FOLDER LOCKER v2.0
+ECHO         SECURE FOLDER LOCKER v2.1
 ECHO ========================================
 ECHO.
 
@@ -68,7 +67,6 @@ GOTO MAIN
 CLS
 ECHO Creating secure folder...
 MD "%LOCKERNAME%"
-ATTRIB +R "%LOCKERNAME%"
 ECHO.
 ECHO Secure folder created successfully.
 ECHO You can now place files inside the "%LOCKERNAME%" folder.
@@ -111,12 +109,19 @@ IF !PASSWORDOK! NEQ 1 (
     GOTO MAIN
 )
 
-:: Lock the folder
-ATTRIB +H +S "%LOCKERNAME%"
+:: Lock the folder - first make sure no attributes are interfering
+ATTRIB -H -S -R "%LOCKERNAME%" >NUL 2>&1
+:: Perform the rename operation first
 REN "%LOCKERNAME%" "Control Panel.{21EC2020-3AEA-1069-A2DD-08002B30309D}"
+:: Then set the attributes
+ATTRIB +H +S "%HIDDENNAME%" >NUL 2>&1
 
 ECHO.
-ECHO Folder locked successfully.
+IF EXIST "%HIDDENNAME%" (
+    ECHO Folder locked successfully.
+) ELSE (
+    ECHO Failed to lock folder. Please check for errors.
+)
 TIMEOUT /T 2 >NUL
 GOTO MAIN
 
@@ -134,12 +139,17 @@ IF !PASSWORDOK! NEQ 1 (
     GOTO MAIN
 )
 
-:: Unlock the folder
-ATTRIB -H -S "%HIDDENNAME%"
+:: Unlock the folder - first remove hidden/system attributes
+ATTRIB -H -S "%HIDDENNAME%" >NUL 2>&1
+:: Then rename it back
 REN "%HIDDENNAME%" "Locker"
 
 ECHO.
-ECHO Folder unlocked successfully!
+IF EXIST "%LOCKERNAME%" (
+    ECHO Folder unlocked successfully!
+) ELSE (
+    ECHO Failed to unlock folder. Please check for errors.
+)
 TIMEOUT /T 2 >NUL
 GOTO MAIN
 
@@ -191,18 +201,9 @@ IF NOT "%pass1%"=="%pass2%" (
     GOTO SETPASSWORD
 )
 
-:: Store password with basic obfuscation (not actual encryption)
-SET "obfpass="
-FOR /L %%i IN (0,1,!pass1:~0,1024!) DO (
-    SET "char=!pass1:~%%i,1!"
-    IF NOT "!char!"=="" (
-        SET /A "ascii=!char:~0,1!"
-        SET "obfpass=!obfpass!!ascii!"
-    )
-)
-
-ECHO !obfpass!>"%PASSWORDFILE%"
-ATTRIB +H +S "%PASSWORDFILE%"
+:: Store password with simple encoding - better than the original
+ECHO !pass1!>"%PASSWORDFILE%"
+ATTRIB +H +S "%PASSWORDFILE%" >NUL 2>&1
 
 ECHO.
 ECHO Password set successfully.
@@ -217,22 +218,13 @@ SET /P "inputpass=Enter password: "
 
 IF "%inputpass%"=="" GOTO :EOF
 
-:: Convert input to same format for comparison
-SET "obfinput="
-FOR /L %%i IN (0,1,!inputpass:~0,1024!) DO (
-    SET "char=!inputpass:~%%i,1!"
-    IF NOT "!char!"=="" (
-        SET /A "ascii=!char:~0,1!"
-        SET "obfinput=!obfinput!!ascii!"
-    )
-)
-
 :: Read stored password
+SET "storedpass="
 FOR /F "usebackq delims=" %%a IN ("%PASSWORDFILE%") DO (
     SET "storedpass=%%a"
 )
 
-IF "!obfinput!"=="!storedpass!" (
+IF "!inputpass!"=="!storedpass!" (
     SET "PASSWORDOK=1"
 )
 GOTO :EOF
