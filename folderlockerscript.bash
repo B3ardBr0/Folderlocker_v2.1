@@ -4,9 +4,10 @@ TITLE Secure Folder Locker
 COLOR 0A
 
 :: Define variables
-SET "LOCKERNAME=Locker"
-SET "HIDDENNAME=Control Panel.{21EC2020-3AEA-1069-A2DD-08002B30309D}"
-SET "PASSWORDFILE=.config.dat"
+SET "CURRENT_DIR=%CD%"
+SET "LOCKERNAME=%CURRENT_DIR%\Locker"
+SET "HIDDENNAME=%CURRENT_DIR%\Control Panel.{21EC2020-3AEA-1069-A2DD-08002B30309D}"
+SET "PASSWORDFILE=%CURRENT_DIR%\.config.dat"
 SET "DEFAULTMSG=Secure Folder System"
 
 :: Check if running with admin privileges
@@ -112,7 +113,7 @@ IF !PASSWORDOK! NEQ 1 (
 
 :: Lock the folder
 ATTRIB +H +S "%LOCKERNAME%"
-REN "%LOCKERNAME%" "%HIDDENNAME%"
+REN "%LOCKERNAME%" "Control Panel.{21EC2020-3AEA-1069-A2DD-08002B30309D}"
 
 ECHO.
 ECHO Folder locked successfully.
@@ -135,7 +136,7 @@ IF !PASSWORDOK! NEQ 1 (
 
 :: Unlock the folder
 ATTRIB -H -S "%HIDDENNAME%"
-REN "%HIDDENNAME%" "%LOCKERNAME%"
+REN "%HIDDENNAME%" "Locker"
 
 ECHO.
 ECHO Folder unlocked successfully!
