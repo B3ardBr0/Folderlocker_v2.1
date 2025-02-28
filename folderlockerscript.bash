@@ -18,7 +18,7 @@ IF %ERRORLEVEL% NEQ 0 (
     EXIT /B 1
 )
 
-:: Create a cleaner interface
+:: Main interface
 :MAIN
 CLS
 ECHO ========================================
@@ -201,7 +201,7 @@ IF NOT "%pass1%"=="%pass2%" (
     GOTO SETPASSWORD
 )
 
-:: Store password with simple encoding - better than the original
+:: Store password with simple encoding - better than the original   
 ECHO !pass1!>"%PASSWORDFILE%"
 ATTRIB +H +S "%PASSWORDFILE%" >NUL 2>&1
 
