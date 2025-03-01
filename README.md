@@ -2,7 +2,7 @@
 
 ## Overview
 
-Secure Folder Locker is a Windows batch script utility designed to protect sensitive files by creating a hidden, password-protected folder on your system. The script works by renaming your folder to a special Windows Control Panel CLSID and applying hidden attributes to make it inaccessible to casual users.
+Secure Folder Locker is a Windows batch script utility designed to protect sensitive files by creating a hidden, password-protected folder on your system. The script works by renaming your folder to a special Windows CLSID and applying hidden attributes to make it inaccessible to casual users.
 
 ## Features
 
