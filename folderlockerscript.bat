@@ -5,7 +5,7 @@ COLOR 0A
 
 :: Define variables
 SET "LOCKERNAME=%~dp0%Locker"
-SET "HIDDENNAME=%~dp0%Control Panel.{21EC2020-3AEA-1069-A2DD-08002B30309D}"
+SET "HIDDENNAME=%~dp0%{20D04FE0-3AEA-1069-A2D8-08002B30309D}"
 SET "PASSWORDFILE=%~dp0%.config.dat"
 SET "DEFAULTMSG=Secure Folder System"
 
@@ -112,9 +112,9 @@ IF !PASSWORDOK! NEQ 1 (
 :: Lock the folder - first make sure no attributes are interfering
 ATTRIB -H -S -R "%LOCKERNAME%" >NUL 2>&1
 :: Perform the rename operation first
-REN "%LOCKERNAME%" "Control Panel.{21EC2020-3AEA-1069-A2DD-08002B30309D}"
+REN "%LOCKERNAME%" "{20D04FE0-3AEA-1069-A2D8-08002B30309D}"
 :: Then set the attributes
-ATTRIB +H +S "%HIDDENNAME%" >NUL 2>&1
+ATTRIB +H +S +R "%HIDDENNAME%" >NUL 2>&1
 
 ECHO.
 IF EXIST "%HIDDENNAME%" (
