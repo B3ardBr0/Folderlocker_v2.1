@@ -1,13 +1,12 @@
 @ECHO OFF
 SETLOCAL EnableDelayedExpansion
-TITLE Secure Folder Locker
+TITLE Folder Locker
 COLOR 0A
 
 :: Define variables
-SET "LOCKERNAME=%~dp0%Locker"
-SET "HIDDENNAME=%~dp0%This PC.{20D04FE0-3AEA-1069-A2D8-08002B30309D}"
-SET "PASSWORDFILE=%~dp0%.config.dat"
-SET "DEFAULTMSG=Secure Folder System"
+SET "LOCKERNAME=%~dp0Locker"
+SET "HIDDENNAME=%~dp0This PC.{20D04FE0-3AEA-1069-A2D8-08002B30309D}"
+SET "PASSWORDFILE=%~dp0.config.dat"
 
 :: Check if running with admin privileges
 NET SESSION >NUL 2>&1
@@ -18,11 +17,13 @@ IF %ERRORLEVEL% NEQ 0 (
     EXIT /B 1
 )
 
-:: Created a cleaner interface
 :MAIN
 CLS
 ECHO ========================================
-ECHO         SECURE FOLDER LOCKER v2.1
+ECHO            FOLDER LOCKER v2.2
+ECHO ========================================
+ECHO  Hides a folder from casual view.
+ECHO  This is not encryption or security.
 ECHO ========================================
 ECHO.
 
@@ -41,7 +42,7 @@ IF EXIST "%HIDDENNAME%" (
 ) ELSE (
     ECHO Status: NOT SETUP
     ECHO.
-    ECHO [1] Create Secure Folder
+    ECHO [1] Create Folder
 )
 
 ECHO [2] Change Password
@@ -65,10 +66,10 @@ GOTO MAIN
 
 :CREATELOCKER
 CLS
-ECHO Creating secure folder...
+ECHO Creating folder...
 MD "%LOCKERNAME%"
 ECHO.
-ECHO Secure folder created successfully.
+ECHO Folder created successfully.
 ECHO You can now place files inside the "%LOCKERNAME%" folder.
 ECHO When ready, return to the main menu to lock it.
 ECHO.
@@ -81,7 +82,7 @@ ECHO ========================================
 ECHO                 LOCK FOLDER
 ECHO ========================================
 ECHO.
-ECHO This will hide and lock your "%LOCKERNAME%" folder.
+ECHO This will hide your "%LOCKERNAME%" folder.
 ECHO.
 ECHO [Y] Yes, lock it now
 ECHO [N] No, return to menu
@@ -171,38 +172,41 @@ IF EXIST "%PASSWORDFILE%" (
     )
 )
 
-ECHO Please set a new password for your secure folder.
-ECHO Password should be at least 6 characters long.
+ECHO Please set a new password for your folder.
+ECHO At least 6 characters. Avoid quotes, percent, caret,
+ECHO and exclamation characters.
 ECHO.
 
-SET "pass1="
-SET "pass2="
-SET /P "pass1=Enter new password: "
+CALL :READPASS "Enter new password"
+SET "pass1=!READPASS_OUT!"
 
 :: Simple password validation
-IF "%pass1%"=="" (
+IF "!pass1!"=="" (
     ECHO Password cannot be empty.
     PAUSE
     GOTO SETPASSWORD
 )
-IF "%pass1:~5%"=="" (
+IF "!pass1:~5!"=="" (
     ECHO Password is too short. Please use at least 6 characters.
     PAUSE
     GOTO SETPASSWORD
 )
 
-ECHO.
-SET /P "pass2=Confirm password: "
+CALL :READPASS "Confirm password"
+SET "pass2=!READPASS_OUT!"
 
-IF NOT "%pass1%"=="%pass2%" (
+IF NOT "!pass1!"=="!pass2!" (
     ECHO.
     ECHO Passwords do not match. Please try again.
     PAUSE
     GOTO SETPASSWORD
 )
 
-:: Store password with simple encoding - better than the original
-ECHO !pass1!>"%PASSWORDFILE%"
+:: Store only a SHA-256 hash of the password, never the password itself.
+:: Attributes must come off first: redirecting to a hidden/system file fails.
+CALL :HASHPASS "!pass1!"
+ATTRIB -H -S "%PASSWORDFILE%" >NUL 2>&1
+>"%PASSWORDFILE%" ECHO !HASHPASS_OUT!
 ATTRIB +H +S "%PASSWORDFILE%" >NUL 2>&1
 
 ECHO.
@@ -211,22 +215,54 @@ TIMEOUT /T 2 >NUL
 GOTO MAIN
 
 :CHECKPASSWORD
-:: Retrieve stored password and validate user input
+:: Retrieve stored password hash and validate user input
 SET "PASSWORDOK=0"
-SET "inputpass="
-SET /P "inputpass=Enter password: "
+CALL :READPASS "Enter password"
+SET "inputpass=!READPASS_OUT!"
 
-IF "%inputpass%"=="" GOTO :EOF
+IF "!inputpass!"=="" GOTO :EOF
 
-:: Read stored password
+:: Read stored value
 SET "storedpass="
 FOR /F "usebackq delims=" %%a IN ("%PASSWORDFILE%") DO (
     SET "storedpass=%%a"
 )
+IF "!storedpass!"=="" GOTO :EOF
 
+:: The stored value should be a 64-character SHA-256 hash. Versions before
+:: v2.2 stored the password itself; accept that once and upgrade it to a
+:: hash on successful entry.
+IF "!storedpass:~63,1!"=="" GOTO CHECKLEGACY
+IF NOT "!storedpass:~64,1!"=="" GOTO CHECKLEGACY
+
+CALL :HASHPASS "!inputpass!"
+IF /I "!HASHPASS_OUT!"=="!storedpass!" SET "PASSWORDOK=1"
+GOTO :EOF
+
+:CHECKLEGACY
 IF "!inputpass!"=="!storedpass!" (
     SET "PASSWORDOK=1"
+    CALL :HASHPASS "!inputpass!"
+    ATTRIB -H -S "%PASSWORDFILE%" >NUL 2>&1
+    >"%PASSWORDFILE%" ECHO !HASHPASS_OUT!
+    ATTRIB +H +S "%PASSWORDFILE%" >NUL 2>&1
 )
 GOTO :EOF
 
-ENDLOCAL
+:READPASS
+:: Masked password prompt: input is not echoed to the screen.
+SET "READPASS_OUT="
+FOR /F "usebackq delims=" %%p IN (`powershell -NoProfile -Command "$s=Read-Host '%~1' -AsSecureString;$b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($s);[Runtime.InteropServices.Marshal]::PtrToStringAuto($b)"`) DO SET "READPASS_OUT=%%p"
+GOTO :EOF
+
+:HASHPASS
+:: SHA-256 of the first argument, via built-in certutil.
+:: Result lands in HASHPASS_OUT with any spaces stripped (older Windows
+:: versions print the hash as spaced hex pairs).
+SET "HASHPASS_OUT="
+SET "HP_FILE=%TEMP%\flpw_%RANDOM%%RANDOM%.tmp"
+ECHO|SET /P="%~1">"!HP_FILE!"
+FOR /F "skip=1 delims=" %%h IN ('certutil -hashfile "!HP_FILE!" SHA256') DO IF NOT DEFINED HASHPASS_OUT SET "HASHPASS_OUT=%%h"
+DEL /Q "!HP_FILE!" >NUL 2>&1
+SET "HASHPASS_OUT=!HASHPASS_OUT: =!"
+GOTO :EOF
